@@ -199,45 +199,44 @@ NotificationCenter.default.addObserver(
 
 ```swift
 import CryptoKit
-.
-.
-.
+
+// ...
 
 func generateRandomNonce(length: Int) -> String {
-        let charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
-        let nonce = (0..<length).compactMap{ _ in charset.randomElement() }
-        
-        return String(nonce)
-    }
+  let charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+  let nonce = (0..<length).compactMap { _ in charset.randomElement() }
 
-    func sha256HashString(_ input: String) -> String {
-        let inputData = Data(input.utf8)
-        let hashedData = SHA256.hash(data: inputData)
-        let hashedString = hashedData.compactMap { String(format: "%02x", $0) }.joined()
-        return hashedString
-    }
+  return String(nonce)
+}
+
+func sha256HashString(_ input: String) -> String {
+  let inputData = Data(input.utf8)
+  let hashedData = SHA256.hash(data: inputData)
+  let hashedString = hashedData.compactMap { String(format: "%02x", $0) }.joined()
+  return hashedString
+}
 ```
 
 - Start Apple Sign In Flow
 ```swift
 var currentNonce: String?
 
-  @available(iOS 13, *)
-    func startSignInWithAppleFlow() {
-        let nonce =  generateRandomNonce(length: 32)
+@available(iOS 13, *)
+func startSignInWithAppleFlow() {
+  let nonce = generateRandomNonce(length: 32)
 
-        currentNonce = nonce
-        let appleIDProvider = ASAuthorizationAppleIDProvider()
-        let request = appleIDProvider.createRequest()
-        request.requestedScopes = [.fullName, .email]
-        request.nonce = sha256HashString(nonce)
-        
-        let authorizationController = ASAuthorizationController(authorizationRequests: [request])
-        authorizationController.delegate = self
-        authorizationController.presentationContextProvider = self as? ASAuthorizationControllerPresentationContextProviding
-        authorizationController.performRequests()
-    }
+  currentNonce = nonce
+  let appleIDProvider = ASAuthorizationAppleIDProvider()
+  let request = appleIDProvider.createRequest()
+  request.requestedScopes = [.fullName, .email]
+  request.nonce = sha256HashString(nonce)
 
+  let authorizationController = ASAuthorizationController(authorizationRequests: [request])
+  authorizationController.delegate = self
+  authorizationController.presentationContextProvider =
+    self as? ASAuthorizationControllerPresentationContextProviding
+  authorizationController.performRequests()
+}
   ```
 - In your ASAuthorizationControllerDelegate implementation, manage Apple's response to process the authentication outcome effectively
 
@@ -245,49 +244,52 @@ var currentNonce: String?
 @available(iOS 13.0, *)
 extension ViewController: ASAuthorizationControllerDelegate {
 
-  func authorizationController(controller: ASAuthorizationController, didCompleteWithAuthorization authorization: ASAuthorization) {
-        if let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential {
-            guard let nonce = currentNonce else {
-                // Handle error
-                return
-            }
-            
-            guard let appleIDToken = appleIDCredential.identityToken else {
-                // Handle error
-                return
-            }
-            
-            guard let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
-                // Handle error
-                return
-            }
-            
-            loginUser(with: idTokenString, nonce: nonce)
-        }
-    }
+  func authorizationController(
+    controller: ASAuthorizationController,
+    didCompleteWithAuthorization authorization: ASAuthorization
+  ) {
+    if let appleIDCredential = authorization.credential as? ASAuthorizationAppleIDCredential {
+      guard let nonce = currentNonce else {
+        // Handle error
+        return
+      }
 
-  func authorizationController(controller: ASAuthorizationController, didCompleteWithError error: Error) {
+      guard let appleIDToken = appleIDCredential.identityToken else {
+        // Handle error
+        return
+      }
+
+      guard let idTokenString = String(data: appleIDToken, encoding: .utf8) else {
+        // Handle error
+        return
+      }
+
+      loginUser(with: idTokenString, nonce: nonce)
+    }
+  }
+
+  func authorizationController(
+    controller: ASAuthorizationController, didCompleteWithError error: Error
+  ) {
     // Handle error.
   }
 }
-
 ```
 
 - For Apple Sign In you will use the method ```signInWithIdToken```
 
 ```swift
-
 func loginUser(with idToken: String, nonce: String) {
-        Task {
-            do {
-                let credentials = OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce)
-                let session = try await client.auth.signInWithIdToken(credentials: credentials)
-                
-            } catch {
-                print("### Apple Sign in Error: \(error)")
-            }
-        }
+  Task {
+    do {
+      let credentials = OpenIDConnectCredentials(provider: .apple, idToken: idToken, nonce: nonce)
+      let session = try await client.auth.signInWithIdToken(credentials: credentials)
+
+    } catch {
+      print("### Apple Sign in Error: \(error)")
     }
+  }
+}
 ```
 
 ### Other Social Logins
